@@ -75,8 +75,8 @@ class advancedLaneFinding:
             undist = self.undistort(img)
             # uncomment to save figure
             # cv2.imwrite('../output_images/undistort/'+fname[15:], undist)
-            
-    def thresholdImage(self,img, s_thresh=(170, 255), sx_thresh=(20, 100)):
+                
+    def thresholdImage(self,img, s_thresh=(170, 255), l_thresh = 100, sx_thresh=(40, 100)):
         # function to created thresholded binary image
         # Convert to HLS color space and separate the V channel
         hls = cv2.cvtColor(img, cv2.COLOR_RGB2HLS)
@@ -94,6 +94,8 @@ class advancedLaneFinding:
         # Threshold color channel
         s_binary = np.zeros_like(s_channel)
         s_binary[(s_channel >= s_thresh[0]) & (s_channel <= s_thresh[1])] = 1
+        # Remove Dark Point
+        s_binary[(l_channel <= l_thresh)] = 0        
         # Stack each channel
         color_binary = np.dstack(( np.zeros_like(sxbinary), sxbinary, s_binary)) * 255
         
@@ -112,11 +114,10 @@ class advancedLaneFinding:
             f, (ax1, ax2) = plt.subplots(1, 2, figsize=(20,10))
             ax1.set_title('Stacked thresholds')
             ax1.imshow(color_binary)
-
             ax2.set_title('Combined S channel and gradient thresholds')
             ax2.imshow(combined_binary, cmap='gray')
+            plt.savefig('../output_images/threshold/'+fname[-9:])
             plt.imsave('../output_images/threshold/v2'+fname[-9:], combined_binary, cmap=cm.gray)
-            # plt.savefig('../output_images/threshold/'+fname[-9:])
             
     def birdsEye(self, img, s=[[592,450],[688,450],[1120,720],[200,720]],d=[[240,0],[1040,0],[1040,720],[240,720]]):
         # function to warp the images to birdeye view
@@ -232,8 +233,7 @@ class advancedLaneFinding:
         
         ### TO-DO: Fit a second order polynomial to each using `np.polyfit` ###
         self.left_fit = np.polyfit(lefty, leftx, 2)
-        self.right_fit = np.polyfit(righty, rightx, 2)
-        
+        self.right_fit = np.polyfit(righty, rightx, 2)        
         # Generate x and y values for plotting
         ploty = np.linspace(0, self.imageSize[1]-1, self.imageSize[1])
         try:
@@ -343,8 +343,8 @@ class advancedLaneFinding:
     
     def measure_vehicle_position(self, left_detected, right_detected):
         # function to compute the vehicle offset
-        position = (left_detected +right_detected)/2
-        offset = (self.imageSize[0]/2 - position) * self.xm_per_pix
+        line_center = (left_detected +right_detected)/2
+        offset = (self.imageSize[0]/2 - line_center) * self.xm_per_pix
         return offset
     
     def inverse_perspective(self, undist, warped, left_fitx, right_fitx, ploty, d=[[592,450],[688,450],[1120,720],[200,720]],s=[[240,0],[1040,0],[1040,720],[240,720]]):
@@ -363,6 +363,20 @@ class advancedLaneFinding:
         plt.imshow(cv2.cvtColor(result_img, cv2.COLOR_BGR2RGB))
         return result_img
     
+    def add_word(self, result_img, left_curverad, right_curverad, offset):
+        font = cv2.FONT_HERSHEY_DUPLEX
+        curverad = (left_curverad + right_curverad) * 0.5
+        text1 = 'Radius of Curvature = ' + '{:04.2f}'.format(curverad) + 'm'
+        cv2.putText(result_img, text1, (50,50), font, 1.5, (255,255,255), 2, cv2.LINE_AA)
+        if offset > 0:
+            direction = 'right'
+        elif offset < 0:
+            direction = 'left'
+        abs_offset = abs(offset)
+        text2 = 'Vehicle is {:03.2f}'.format(abs_offset) + 'm ' + direction + ' of center'
+        cv2.putText(result_img, text2, (50,120), font, 1.5, (255,255,255), 2, cv2.LINE_AA)
+        return result_img
+    
     def pipe_line(self,img):
         self.cameraCalibration() 
         undist = self.undistort(img)
@@ -379,24 +393,29 @@ class advancedLaneFinding:
     
 if __name__ == '__main__':
       test1 = advancedLaneFinding()
+      #test1.thresholdTest('../output_images/undistort/test*.jpg')
+      #test1.birdsEyeTest('../output_images/threshold/v2test*.jpg')
       '''
       test1.cameraCalibration() 
-      img = cv2.imread('../test_images/test1.jpg')
+      img = cv2.imread('../test_images/test6.jpg')
       undist = test1.undistort(img)
       color_binary, combined_binary = test1.thresholdImage(undist)
       warped = test1.birdsEye(combined_binary)
       test1.fit_firstPoly(warped)
       left_fitx, right_fitx, ploty, result  = test1.search_around_poly(warped)
       left_curverad, right_curverad= test1.measure_curvature_real(left_fitx, right_fitx, ploty)
+      result = test1.inverse_perspective(undist,warped,left_fitx, right_fitx, ploty)
       offset = test1.measure_vehicle_position(left_fitx[-1], right_fitx[-1])
-      test1.inverse_perspective(warped, left_fitx, right_fitx, ploty)
+      note_result = test1.add_word(result, left_curverad, right_curverad, offset)
+      cv2.imwrite('../output_images/test/test6final.jpg', note_result)
+     
       '''
-      
       output = 'project_video_output.mp4'
       clip1 = VideoFileClip("../project_video.mp4")
       white_clip = clip1.fl_image(test1.pipe_line) 
       white_clip.write_videofile(output, audio=False)
-      #NOTE: this function expects color images!!
+      
+      #NOTE: this function expects color images!!'''
 
       # plt.imshow(img)
       #test1.undistortTest('../test_images/test*.jpg')

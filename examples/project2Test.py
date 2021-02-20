@@ -61,7 +61,7 @@ def undistortTest(path):
         img = cv2.imread(fname)
         undistort(img)
 
-def thresholdImage(img, s_thresh=(170, 255), sx_thresh=(20, 100)):
+def thresholdImage(img, s_thresh=(180, 255), sx_thresh=(30, 100)):
     # Convert to HLS color space and separate the V channel
     hls = cv2.cvtColor(img, cv2.COLOR_RGB2HLS)
     l_channel = hls[:,:,1]
@@ -88,10 +88,9 @@ def thresholdImage(img, s_thresh=(170, 255), sx_thresh=(20, 100)):
     f, (ax1, ax2) = plt.subplots(1, 2, figsize=(20,10))
     ax1.set_title('Stacked thresholds')
     ax1.imshow(color_binary)
-
     ax2.set_title('Combined S channel and gradient thresholds')
     ax2.imshow(combined_binary, cmap='gray')   
-    plt.savefig('../output_images/threshold/'+fname[-9:])
+    plt.savefig('../output_images/threshold/'+img[-9:])
     return combined_binary
 
 def thresholdTest(path):
@@ -304,9 +303,11 @@ def search_around_poly(binary_warped):
     ## End visualization steps ##
     
     return result   
-# undistortTest('../test_images/test*.jpg')
-# thresholdTest('../output_images/undistort/test*.jpg')
 
+    #undistortTest('../test_images/test*.jpg')
+    
+    thresholdTest('../output_images/undistort/test*.jpg')
+'''
 fname = '../test_images/straight_lines1.jpg'
 img = cv2.imread(fname)
 objpoints, imgpoints = cameraCalibration()
@@ -314,4 +315,4 @@ undist = undistort(img, objpoints, imgpoints)
 birdEye = birds_eye(undist)
 binaryThreshed = thresholdImage(birdEye)
 fit_polynomial(binaryThreshed)
-
+'''
